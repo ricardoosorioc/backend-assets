@@ -1,40 +1,65 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
+from supabase import create_client, Client
 from pydantic import BaseModel
-from typing import List
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from datetime import datetime, timedelta
 
-app = FastAPI(title="Asset Management API")
+# CONFIGURACIÓN BASE DE DATOS
+URL = "https://uozneomcariqxcpgpakb.supabase.co"
+KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvem5lb21jYXJpcXhjcGdwYWtiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzQ3MzM3MSwiZXhwIjoyMDkzMDQ5MzcxfQ.zoyFrseABXB51DaYCBzmgexRs2oN5nka9ldM2QhKP-I"
+supabase: Client = create_client(URL, KEY)
 
-# Configuración de CORS para conectar con Next.js
+SECRET_KEY = "3b89f7a9d8e6c5b4a3f2"
+ALGORITHM = "HS256"
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Para pruebas
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Modelo de datos simple
+# MODELOS
 class Asset(BaseModel):
-    id: int
     name: str
     type: str
     status: str
 
-# Base de datos ficticia para rapidez (puedes conectar Supabase luego)
-db_assets = [
-    {"id": 1, "name": "Dell XPS 15", "type": "Laptop", "status": "Assigned"},
-    {"id": 2, "name": "Monitor LG 27'", "type": "Peripheral", "status": "Available"},
-]
+# SEGURIDAD
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=30)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-@app.get("/")
-def home():
-    return {"message": "API de Gestión de Activos corriendo"}
+#  AUTENTICACIÓN 
+@app.post("/token")
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    
+    if form_data.username == "admin" and form_data.password == "admin123":
+        access_token = create_access_token(data={"sub": form_data.username})
+        return {"access_token": access_token, "token_type": "bearer"}
+    raise HTTPException(status_code=400, detail="Usuario o clave incorrecta")
 
-@app.get("/assets", response_model=List[Asset])
-def get_assets():
-    return db_assets
+# CRUD 
+@app.get("/assets")
+def read_assets():
+    response = supabase.table("assets").select("*").execute()
+    return response.data
 
 @app.post("/assets")
 def create_asset(asset: Asset):
-    db_assets.append(asset.dict())
-    return {"message": "Activo registrado con éxito", "asset": asset}
+    response = supabase.table("assets").insert(asset.dict()).execute()
+    return response.data
+
+@app.delete("/assets/{asset_id}")
+def delete_asset(asset_id: int):
+    supabase.table("assets").delete().eq("id", asset_id).execute()
+    return {"message": "Eliminado"}
