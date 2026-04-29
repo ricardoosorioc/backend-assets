@@ -60,11 +60,11 @@ def read_assets():
     return response.data
 
 @app.post("/assets")
-def create_asset(asset: Asset):
+def create_asset(asset: Asset, token: str = Depends(oauth2_scheme)):
     response = supabase.table("assets").insert(asset.dict()).execute()
     return response.data
 
 @app.delete("/assets/{asset_id}")
-def delete_asset(asset_id: int):
+def delete_asset(asset_id: int, token: str = Depends(oauth2_scheme)):
     supabase.table("assets").delete().eq("id", asset_id).execute()
     return {"message": "Eliminado"}
