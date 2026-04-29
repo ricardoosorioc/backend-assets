@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,11 +9,15 @@ from passlib.context import CryptContext
 from datetime import datetime, timedelta
 
 # CONFIGURACIÓN BASE DE DATOS
-URL = "https://uozneomcariqxcpgpakb.supabase.co"
-KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvem5lb21jYXJpcXhjcGdwYWtiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzQ3MzM3MSwiZXhwIjoyMDkzMDQ5MzcxfQ.zoyFrseABXB51DaYCBzmgexRs2oN5nka9ldM2QhKP-I"
+URL = os.getenv("SUPABASE_URL")
+KEY = os.getenv("SUPABASE_KEY")
+SECRET_KEY = os.getenv("SECRET_KEY", "3b89f7a9d8e6c5")
+
+if not URL or not KEY:
+    print("ERROR: No se encontraron las credenciales de Supabase en las variables de entorno")
+
 supabase: Client = create_client(URL, KEY)
 
-SECRET_KEY = "3b89f7a9d8e6c5b4a3f2"
 ALGORITHM = "HS256"
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
